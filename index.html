@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="description" content="Convert videos to mp4 or gif directly in your browser using WebAssembly (WASM). No uploads, everything stays on your device for privacy and security.">
+    <meta name="keywords" content="video to mp4, video to gif, mp4 to gif, mov to mp4, mov to gif, WebAssembly, WASM, offline, privacy, secure, no upload, no cloud, no install">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="Magnus Hindborg Hovmann">
+    <link rel="icon" type="image/x-icon" href="./favicon.ico">
+    <title>Offline MP4 Convert</title>
+    <style>
+    :root {
+      color-scheme: light dark;
+      --main-bg-color: light-dark(#eee, #222);
+      --main-border-color: light-dark(grey, lightgrey);
+      --main-draw-color: light-dark(black, #eee);
+      --main-error-color: light-dark(pink, darkred)
+    }
+
+    * {
+      font-family: monospace;
+    }
+
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: 0;
+      padding: 0;
+    }
+
+    body, header, footer, main {
+      background-color: var(--main-bg-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    main {
+      flex: 1;
+    }
+
+    footer {
+      padding: 1em;
+    }
+
+    #error-message {
+      background-color: var(--main-error-color);
+      border: 1px solid var(--main-draw-color);
+      border-radius: 3px;
+      padding: 6px;
+    }
+
+    #inputSection {
+      border: 2px dashed var(--main-border-color);
+      color: var(--main-border-color);
+      padding: 1em;
+    }
+
+    #inputSection:hover {
+      border: 2px dashed var(--main-draw-color);
+      color: var(--main-draw-color);
+    }
+        
+    @keyframes shake {
+      0%   { transform: translateX(0); }
+      20%  { transform: translateX(2px); }
+      40%  { transform: translateX(-2px); }
+      60%  { transform: translateX(2px); }
+      80%  { transform: translateX(-2px); }
+      100% { transform: translateX(0); }
+    }
+
+    .shake {
+      animation: shake 0.5s ease;
+    }
+
+    .loader {
+      width: 32px;
+      height: 32px;
+      border: 5px solid #FFF;
+      border-bottom-color: transparent;
+      border-radius: 50%;
+      display: inline-block;
+      box-sizing: border-box;
+      animation: rotation 1s linear infinite;
+    }
+
+    #loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    @keyframes rotation {
+      0% {
+          transform: rotate(0deg);
+      }
+      100% {
+          transform: rotate(360deg);
+      }
+    }
+
+    #features {
+      margin-top: 0px;
+    }
+
+    #outputSection {
+      margin-top: 1em;
+      margin-bottom: 1em;
+    }
+
+    #convertBtn {
+      margin-top: 0.5em;
+    }
+
+    #advancedInput {
+      * {
+        margin-bottom: 0.5em;
+      }
+    }
+
+    #actionSection {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Offline MP4 Converter</h1>
+      <ul id="features">
+        <li>Convert videos to MP4s directly in the browser</li>
+        <li>No cloud, no uploads, no installs, no downloads</li>
+        <li>Everything stays on your device, private and secure</li>
+      </ul>
+      <hr style="width: 35em; max-width: 90%;">
+    </header>
+
+    <main>
+      <p>Choose any video:</p>
+
+      <div id="inputSection">
+        <input type="file" id="fileInput" aria-label="Image to convert" onchange="fileInputChanged(event)" accept="video/*,audio/*,image/gif" />
+      </div>
+
+      <div id="actionSection" style="display: none;">
+        <div id="outputSection">
+          <label for="outputType">Output format:</label>
+          <select id="outputType" onchange="selectChanged(event)">
+            <option value="video/mp4">MP4</option>
+            <option value="image/gif">GIF</option>
+          </select>
+        </div>
+
+        <details id="advancedInput">
+          <summary>
+            Advanced options (click to expand)
+          </summary>
+          <div id="advancedInput-video/mp4">
+            <p>TODO insert mp4 settings</p>
+          </div>
+
+          <div id="advancedInput-image/gif" style="display: none;">
+            <p>TODO insert gif settings</p>
+          </div>
+        </details>
+
+        <button id="convertBtn" onclick="convert()">Convert</button>
+        
+        <div id="loader" style="display: none;">
+          <span class="loader"></span>
+          <p id="progress">Starting...</p>
+        </div>
+      </div>
+
+      <p id="error-message" style="display: none;">
+        Error here
+      </p>
+    </main>
+
+    <footer>
+      <a href="https://github.com/HHMagnus/Mp4Convert" target="_blank">Source and Issues on Github</a>
+    </footer>
+
+    <script>
+      const errorMessage = document.getElementById("error-message");
+      function showError(error) {
+        errorMessage.innerText = error;
+
+        if (errorMessage.style.display === 'none') {
+          errorMessage.style.display = 'block';
+        } else {
+          errorMessage.classList.remove('shake');
+          errorMessage.offsetWidth;
+          errorMessage.classList.add('shake');
+        }
+      }
+
+      function hideError() {
+        errorMessage.style.display = 'none';
+        errorMessage.classList.remove('shake');
+      }
+    </script>
+    <script type="module">
+      import { FFmpeg } from "./node_modules/@ffmpeg/ffmpeg/dist/esm/index.js";
+      import { fetchFile } from "./node_modules/@ffmpeg/util/dist/esm/index.js";
+      let ffmpeg = null;
+      let ffmpegLoaded = false;
+
+      const progressText = document.getElementById("progress");
+      function progress(text) {
+          progressText.innerText = text;
+      }
+
+      const loadFFmpeg = async () => {
+        ffmpeg = new FFmpeg();
+        ffmpeg.on("log", ({ message }) => {
+          console.log(message);
+        })
+        ffmpeg.on("progress", ({ progress }) => {
+          progressText.innerText = `Converting: ${(progress * 100).toFixed(1)} %`;
+        });
+        await ffmpeg.load({
+          coreURL: "/node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.js",
+        });
+        ffmpegLoaded = true;
+      };
+      loadFFmpeg();
+
+      const actionSection = document.getElementById("actionSection");
+      function hideActions() {
+        actionSection.style.display = 'none';
+      }
+      function showActions() {
+        actionSection.style.display = 'flex';
+      }
+
+      function downloadVideo(videoData, fileName, outputType) {
+        const blob = new Blob([videoData], { type: outputType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      const loader = document.getElementById("loader");
+      const convertBtn = document.getElementById("convertBtn");
+      function showLoader() {
+        convertBtn.style.display = 'none';
+        loader.style.display = 'flex';
+      }
+      function hideLoader() {
+        convertBtn.style.display = 'block';
+        loader.style.display = 'none';
+      }
+
+      function fileExtension(outputType) {
+        switch (outputType) {
+          case "video/mp4": return "mp4";
+          case "image/gif": return "gif";
+        };
+        return "mp4";
+      }
+
+      function newFileName(originalFileName, outputType) {
+        const withoutExtension = originalFileName.replace(/\.[^/.]+$/, "");
+        const extension = fileExtension(outputType);
+        return withoutExtension + "." + extension;
+      }
+
+      const fileInput = document.getElementById('fileInput');
+      const outputTypeElement = document.getElementById("outputType");
+      async function convert() {
+        const file = fileInput.files[0];
+        if (!file) {
+          showError("Select a file before continueing.");
+          return;
+        }
+
+        if (!ffmpegLoaded) {
+          showError("Worker is not ready yet, please wait a moment and try again.");
+          return;
+        }
+
+        const outputType = outputTypeElement.value;
+        if (!outputType) {
+          showError("Select an output type before continueing.");
+          return;
+        }
+
+        showLoader();
+        hideError();
+
+        const name = file.name;
+        const newName = newFileName(file.name, outputType);
+        const inputType = file.type;
+        // TODO read options
+
+        progress("Getting file...");
+        const ffmpegFile = await fetchFile(file);
+        progress("Loading file...");
+        await ffmpeg.writeFile(name, ffmpegFile);
+        progress("Converting...");
+        await ffmpeg.exec(['-i', name, newName]);
+        progress("Fetching result...");
+        const data = await ffmpeg.readFile(newName);
+
+        downloadVideo(data.buffer, newName, outputType);
+        hideLoader();
+      }
+      window.convert = convert;
+
+      const advancedInput = document.getElementById("advancedInput");
+      function selectChanged(event) {
+        const outputType = event.target.value;
+        const advancedInputDivs = document.querySelectorAll("#advancedInput > div");
+        advancedInputDivs.forEach(div => {
+          div.style.display = 'none';
+        });
+
+        let constainsAdvancedOptions = false;
+
+        const specificDiv = document.getElementById("advancedInput-" + outputType);
+        if (specificDiv) {
+          specificDiv.style.display = 'block';
+          constainsAdvancedOptions = true;
+        }
+
+        advancedInput.style.display = constainsAdvancedOptions ? 'block' : 'none';
+        hideError();
+      }
+      window.selectChanged = selectChanged;
+
+      function fileInputChangedEvent(event) {
+        const fileType = event.target.files[0]?.type;
+        fileInputChanged(fileType);
+      }
+      window.fileInputChanged = fileInputChangedEvent;
+
+      function fileInputChanged(fileType) {
+        const outputType = outputTypeElement.value;
+        if (fileType === "image/gif" && outputType === "image/gif") {
+          outputTypeElement.value = "video/mp4";
+          selectChanged({ target: outputTypeElement });
+        } else if (fileType === "video/mp4" && outputType === "video/mp4") {
+          outputTypeElement.value = "image/gif";
+          selectChanged({ target: outputTypeElement });
+        }
+        showActions();
+        hideError();
+      }
+    </script>
+  </body>
+</html>
