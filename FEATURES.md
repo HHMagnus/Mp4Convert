@@ -5,5 +5,5 @@
 - I want to control the quality of the conversion through available parameters
 
 TODO:
-- Fix advanced section with parameters
 - Find best way to accept errors
+- Consider support WebM output
