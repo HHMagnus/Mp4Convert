@@ -184,7 +184,23 @@
           </div>
 
           <div id="advancedInput-image/gif" style="display: none;">
-            <p>TODO insert gif settings</p>
+            <label for="gifFps">Frames per second (FPS):</label>
+            <input type="number" id="gifFps" name="gifFps"/>
+
+            <br />
+
+            <label for="gifWidth">Resize (width): </label>
+            <input type="number" id="gifWidth" name="gifWidth"/>
+
+            <br />
+
+            <label for="limitTime">Limit time (seconds): </label>
+            <input type="number" id="limitTime" name="limitTime"/>
+
+            <br />
+            
+            <input type="checkbox" id="enableLoop" name="enableLoop" checked/>
+            <label for="enableLoop">Loop</label>
           </div>
         </details>
 
@@ -298,6 +314,11 @@
       const enableAudio = document.getElementById('enableAudio');
       const enableFaststart = document.getElementById('enableFaststart');
       const preset = document.getElementById('preset');
+
+      const gifFps = document.getElementById('gifFps');
+      const gifWidth = document.getElementById('gifWidth');
+      const limitTime = document.getElementById('limitTime');
+      const enableLoop = document.getElementById('enableLoop');
       function readOptions() {
         const isOpen = advancedInput.open;
         if (!isOpen) {
@@ -316,6 +337,32 @@
           }
 
           result.push('-preset', preset.value);
+        }
+
+        if (outputTypeElement.value === "image/gif") {
+
+          let vf = "";
+          if (gifFps.value) {
+            vf += `fps=${gifFps.value}`;
+          }
+
+          if (gifWidth.value) {
+            vf += (vf ? ',' : '') + `scale=${gifWidth.value}:-1`;
+          }
+
+          if (vf) {
+            result.push('-vf', vf);
+          }
+
+          if (limitTime.value) {
+            result.push('-t', limitTime.value);
+          }
+
+          if (enableLoop.checked) {
+            result.push('-loop', '0');
+          } else {
+            result.push('-loop', '-1');
+          }
         }
 
         return result;
