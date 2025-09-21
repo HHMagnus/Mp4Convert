@@ -320,14 +320,20 @@
       const limitTime = document.getElementById('limitTime');
       const enableLoop = document.getElementById('enableLoop');
       function readOptions() {
-        const isOpen = advancedInput.open;
-        if (!isOpen) {
-          return [];
+        const result = [];
+        const mp4Output = outputTypeElement.value === "video/mp4";
+        if (mp4Output) {
+          // These options are needed to ensure compatibility with most players
+          result.push('-pix_fmt', 'yuv420p');
+          result.push('-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2');
         }
 
-        const result = [];
+        const isOpen = advancedInput.open;
+        if (!isOpen) {
+          return result;
+        }
 
-        if (outputTypeElement.value === "video/mp4") {
+        if (mp4Output) {
           if (!enableAudio.checked) {
             result.push('-an');
           }
@@ -337,9 +343,6 @@
           }
 
           result.push('-preset', preset.value);
-
-          result.push('-pix_fmt', 'yuv420p');
-          result.push('-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2');
         }
 
         if (outputTypeElement.value === "image/gif") {
