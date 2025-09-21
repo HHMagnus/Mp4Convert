@@ -11,4 +11,4 @@ Try it here: [https://mp4convert.mhh.dev/](https://mp4convert.mhh.dev/)
    ```bash
    npm install
    ```
-2. Open the index.html file
+2. Open the index.html file or serve it with a static host
