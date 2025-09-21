@@ -159,7 +159,28 @@
             Advanced options (click to expand)
           </summary>
           <div id="advancedInput-video/mp4">
-            <p>TODO insert mp4 settings</p>
+            <input type="checkbox" id="enableAudio" name="enableAudio" checked />
+            <label for="enableAudio">Enable audio</label>
+
+            <br />
+
+            <input type="checkbox" id="enableFaststart" name="enableFaststart" />
+            <label for="enableFaststart">Enable fast start</label>
+
+            <br />
+
+            <label for="preset">Preset:</label>
+            <select id="preset">
+              <option value="ultrafast">Ultra fast</option>
+              <option value="superfast">Super fast</option>
+              <option value="veryfast">Very fast</option>
+              <option value="faster">Faster</option>
+              <option value="fast">Fast</option>
+              <option value="medium" selected>Medium</option>
+              <option value="slow">Slow</option>
+              <option value="slower">Slower</option>
+              <option value="veryslow">Very Slow</option>
+            </select>
           </div>
 
           <div id="advancedInput-image/gif" style="display: none;">
@@ -274,6 +295,32 @@
         return withoutExtension + "." + extension;
       }
 
+      const enableAudio = document.getElementById('enableAudio');
+      const enableFaststart = document.getElementById('enableFaststart');
+      const preset = document.getElementById('preset');
+      function readOptions() {
+        const isOpen = advancedInput.open;
+        if (!isOpen) {
+          return [];
+        }
+
+        const result = [];
+
+        if (outputTypeElement.value === "video/mp4") {
+          if (!enableAudio.checked) {
+            result.push('-an');
+          }
+
+          if (enableFaststart.checked) {
+            result.push('-movflags', 'faststart');
+          }
+
+          result.push('-preset', preset.value);
+        }
+
+        return result;
+      }
+
       const fileInput = document.getElementById('fileInput');
       const outputTypeElement = document.getElementById("outputType");
       async function convert() {
@@ -300,14 +347,14 @@
         const name = file.name;
         const newName = newFileName(file.name, outputType);
         const inputType = file.type;
-        // TODO read options
+        const options = readOptions();
 
         progress("Getting file...");
         const ffmpegFile = await fetchFile(file);
         progress("Loading file...");
         await ffmpeg.writeFile(name, ffmpegFile);
         progress("Converting...");
-        await ffmpeg.exec(['-i', name, newName]);
+        await ffmpeg.exec(['-i', name, ...options, newName]);
         progress("Fetching result...");
         const data = await ffmpeg.readFile(newName);
 
