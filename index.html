@@ -142,7 +142,7 @@
       <p>Choose any video:</p>
 
       <div id="inputSection">
-        <input type="file" id="fileInput" aria-label="Image to convert" onchange="fileInputChanged(event)" accept="video/*,audio/*,image/gif" />
+        <input type="file" id="fileInput" aria-label="Image to convert" onchange="fileInputChanged(event)" accept="video/*,image/gif" />
       </div>
 
       <div id="actionSection" style="display: none;">
@@ -159,11 +159,48 @@
             Advanced options (click to expand)
           </summary>
           <div id="advancedInput-video/mp4">
-            <p>TODO insert mp4 settings</p>
+            <input type="checkbox" id="enableAudio" name="enableAudio" checked />
+            <label for="enableAudio">Enable audio</label>
+
+            <br />
+
+            <input type="checkbox" id="enableFaststart" name="enableFaststart" />
+            <label for="enableFaststart">Enable fast start</label>
+
+            <br />
+
+            <label for="preset">Preset:</label>
+            <select id="preset">
+              <option value="ultrafast">Ultra fast</option>
+              <option value="superfast">Super fast</option>
+              <option value="veryfast">Very fast</option>
+              <option value="faster">Faster</option>
+              <option value="fast">Fast</option>
+              <option value="medium" selected>Medium</option>
+              <option value="slow">Slow</option>
+              <option value="slower">Slower</option>
+              <option value="veryslow">Very Slow</option>
+            </select>
           </div>
 
           <div id="advancedInput-image/gif" style="display: none;">
-            <p>TODO insert gif settings</p>
+            <label for="gifFps">Frames per second (FPS):</label>
+            <input type="number" id="gifFps" name="gifFps"/>
+
+            <br />
+
+            <label for="gifWidth">Resize (width): </label>
+            <input type="number" id="gifWidth" name="gifWidth"/>
+
+            <br />
+
+            <label for="limitTime">Limit time (seconds): </label>
+            <input type="number" id="limitTime" name="limitTime"/>
+
+            <br />
+            
+            <input type="checkbox" id="enableLoop" name="enableLoop" checked/>
+            <label for="enableLoop">Loop</label>
           </div>
         </details>
 
@@ -274,6 +311,63 @@
         return withoutExtension + "." + extension;
       }
 
+      const enableAudio = document.getElementById('enableAudio');
+      const enableFaststart = document.getElementById('enableFaststart');
+      const preset = document.getElementById('preset');
+
+      const gifFps = document.getElementById('gifFps');
+      const gifWidth = document.getElementById('gifWidth');
+      const limitTime = document.getElementById('limitTime');
+      const enableLoop = document.getElementById('enableLoop');
+      function readOptions() {
+        const isOpen = advancedInput.open;
+        if (!isOpen) {
+          return [];
+        }
+
+        const result = [];
+
+        if (outputTypeElement.value === "video/mp4") {
+          if (!enableAudio.checked) {
+            result.push('-an');
+          }
+
+          if (enableFaststart.checked) {
+            result.push('-movflags', 'faststart');
+          }
+
+          result.push('-preset', preset.value);
+        }
+
+        if (outputTypeElement.value === "image/gif") {
+
+          let vf = "";
+          if (gifFps.value) {
+            vf += `fps=${gifFps.value}`;
+          }
+
+          if (gifWidth.value) {
+            vf += (vf ? ',' : '') + `scale=${gifWidth.value}:-1`;
+          }
+
+          if (vf) {
+            result.push('-vf', vf);
+          }
+
+          if (limitTime.value) {
+            result.push('-t', limitTime.value);
+          }
+
+          if (enableLoop.checked) {
+            result.push('-loop', '0');
+          } else {
+            result.push('-loop', '-1');
+          }
+        }
+
+        return result;
+      }
+
       const fileInput = document.getElementById('fileInput');
       const outputTypeElement = document.getElementById("outputType");
       async function convert() {
@@ -300,14 +394,14 @@
         const name = file.name;
         const newName = newFileName(file.name, outputType);
         const inputType = file.type;
-        // TODO read options
+        const options = readOptions();
 
         progress("Getting file...");
         const ffmpegFile = await fetchFile(file);
         progress("Loading file...");
         await ffmpeg.writeFile(name, ffmpegFile);
         progress("Converting...");
-        await ffmpeg.exec(['-i', name, newName]);
+        await ffmpeg.exec(['-i', name, ...options, newName]);
         progress("Fetching result...");
         const data = await ffmpeg.readFile(newName);
 

@@ -1,14 +1,5 @@
 {
-  "name": "ffmpegexample",
-  "version": "1.0.0",
-  "description": "",
-  "license": "ISC",
-  "author": "",
-  "type": "commonjs",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "name": "mp4convert",
   "dependencies": {
     "@ffmpeg/core": "^0.12.10",
     "@ffmpeg/core-mt": "^0.12.10",

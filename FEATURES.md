@@ -7,5 +7,3 @@
 TODO:
 - Fix advanced section with parameters
 - Find best way to accept errors
-- Make progress be with less decimals
-- Trim package.json
