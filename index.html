@@ -337,6 +337,9 @@
           }
 
           result.push('-preset', preset.value);
+
+          result.push('-pix_fmt', 'yuv420p');
+          result.push('-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2');
         }
 
         if (outputTypeElement.value === "image/gif") {
